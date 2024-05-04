@@ -47,11 +47,25 @@ module Rails
 
       alias :tsort_each_node :each
       def tsort_each_child(initializer, &block)
-        select { |i| i.before == initializer.name || i.name == initializer.after }.each(&block)
+        children = by_before[initializer.name] || Collection.new
+        if initializer.after && (afters = by_name[initializer.after])
+          children.concat(afters).uniq!
+        end
+        children.each(&block)
       end
 
       def +(other)
         Collection.new(to_a + other.to_a)
+      end
+
+      private
+
+      def by_before
+        @by_before ||= lazy.select(&:before).group_by(&:before)
+      end
+
+      def by_name
+        @by_name ||= group_by(&:name)
       end
     end
 
