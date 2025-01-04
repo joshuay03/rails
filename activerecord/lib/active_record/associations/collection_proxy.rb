@@ -45,6 +45,10 @@ module ActiveRecord
         @association.load_target
       end
 
+      def add_to_target(...)
+        @association.add_to_target(...)
+      end
+
       # Returns +true+ if the association has been loaded, otherwise +false+.
       #
       #   person.pets.loaded? # => false

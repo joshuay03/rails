@@ -141,11 +141,12 @@ module ActiveRecord
     #
     #   Product.where(["price = %?", price]).sole
     def sole
-      found, undesired = limit(2)
+      found, undesired = limit(2).to_a
 
       if found.nil?
         raise_record_not_found_exception!
       elsif undesired.nil?
+        add_to_target(found) if respond_to?(:add_to_target)
         found
       else
         raise ActiveRecord::SoleRecordExceeded.new(model)
@@ -205,7 +206,13 @@ module ActiveRecord
       result = ordered_relation.limit(limit)
       result = result.reverse_order!
 
-      limit ? result.reverse : result.first
+      if limit
+        records = result.reverse.to_a
+        records.each { |record| add_to_target(record) } if respond_to?(:add_to_target)
+        records
+      else
+        result.first
+      end
     end
 
     # Same as #last but raises ActiveRecord::RecordNotFound if no record
@@ -558,6 +565,7 @@ module ActiveRecord
         end
 
         if result.size == expected_size
+          add_to_target(record) if respond_to?(:add_to_target)
           result
         else
           raise_record_not_found_exception!(ids, result.size, expected_size)
@@ -583,7 +591,11 @@ module ActiveRecord
         if loaded?
           records.first
         else
-          @take ||= limit(1).records.first
+          @take ||= begin
+            record = limit(1).records.first
+            add_to_target(record) if respond_to?(:add_to_target)
+            record
+          end
         end
       end
 
@@ -591,7 +603,9 @@ module ActiveRecord
         if loaded?
           records.take(limit)
         else
-          limit(limit).to_a
+          records = limit(limit).to_a
+          records.each { |record| add_to_target(record) } if respond_to?(:add_to_target)
+          records
         end
       end
 
@@ -612,7 +626,9 @@ module ActiveRecord
 
           if limit > 0
             relation = relation.offset((offset_value || 0) + index) unless index.zero?
-            relation.limit(limit).to_a
+            records = relation.limit(limit).to_a
+            records.each { |record| add_to_target(record) } if respond_to?(:add_to_target)
+            records
           else
             []
           end
@@ -625,11 +641,13 @@ module ActiveRecord
         else
           relation = ordered_relation
 
-          if relation.order_values.empty? || relation.has_limit_or_offset?
+          record = if relation.order_values.empty? || relation.has_limit_or_offset?
             relation.records[-index]
           else
             relation.reverse_order.offset(index - 1).first
           end
+          add_to_target(record) if respond_to?(:add_to_target)
+          record
         end
       end
 
